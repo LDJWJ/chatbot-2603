@@ -1,6 +1,7 @@
 import streamlit as st
 from openai import OpenAI
 
+# Show title and description.
 st.title("💬 Chatbot")
 st.write(
     "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
@@ -8,47 +9,37 @@ st.write(
     "You can also learn how to build this app step by step by [following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
 )
 
+# Ask user for their OpenAI API key via `st.text_input`.
+# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
+# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
 openai_api_key = st.text_input("OpenAI API Key", type="password")
-
 if not openai_api_key:
     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
 else:
+
+    # Create an OpenAI client.
     client = OpenAI(api_key=openai_api_key)
 
+    # Create a session state variable to store the chat messages. This ensures that the
+    # messages persist across reruns.
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # ✅ 추천 질문 목록
-    SUGGESTED_QUESTIONS = [
-        "🤖 AI란 무엇인가요?",
-        "🐍 Python을 처음 배우려면 어떻게 시작하나요?",
-        "📊 데이터 분석에서 자주 쓰는 라이브러리는?",
-        "✍️ 좋은 글쓰기 습관을 만들려면?",
-        "🌍 영어 회화 실력을 빠르게 늘리는 방법은?",
-    ]
-
-    # ✅ 추천 질문 버튼 표시 (대화 이력이 없을 때만)
-    if not st.session_state.messages:
-        st.markdown("#### 💡 추천 질문")
-        cols = st.columns(len(SUGGESTED_QUESTIONS))
-        for i, question in enumerate(SUGGESTED_QUESTIONS):
-            with cols[i]:
-                if st.button(question, key=f"suggested_{i}", use_container_width=True):
-                    st.session_state["selected_question"] = question
-
-    # 기존 메시지 표시
+    # Display the existing chat messages via `st.chat_message`.
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # ✅ 추천 질문 클릭 시 자동으로 prompt에 넣기
-    default_prompt = st.session_state.pop("selected_question", None)
+    # Create a chat input field to allow the user to enter a message. This will display
+    # automatically at the bottom of the page.
+    if prompt := st.chat_input("What is up?"):
 
-    if prompt := (st.chat_input("What is up?") or default_prompt):
+        # Store and display the current prompt.
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
+        # Generate a response using the OpenAI API.
         stream = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -58,6 +49,8 @@ else:
             stream=True,
         )
 
+        # Stream the response to the chat using `st.write_stream`, then store it in 
+        # session state.
         with st.chat_message("assistant"):
             response = st.write_stream(stream)
         st.session_state.messages.append({"role": "assistant", "content": response})
